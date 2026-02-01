@@ -7,9 +7,9 @@ import sys
 from extractor import FantageExtractor
 
 def resource_path(relative_path):
-    """ Get absolute path to resource, works for dev and for PyInstaller """
+    """ Get absolute path to resource, for PyInstaller"""
     try:
-        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        # PyInstaller creates a temp folder
         base_path = sys._MEIPASS
     except Exception:
         base_path = os.path.abspath(".")
@@ -26,7 +26,6 @@ class App:
         style = ttk.Style()
         style.theme_use('clam')
         
-        # Header
         # Header Frame
         header_frame = ttk.Frame(root)
         header_frame.pack(pady=20)
@@ -100,10 +99,9 @@ class App:
     def animate_gif(self, idx):
         frame = self.gif_frames[idx]
         self.img_label.configure(image=frame)
-        # Advance index, loop back to 0
         next_idx = (idx + 1) % len(self.gif_frames)
-        # 100ms delay for animation
-        self.root.after(100, self.animate_gif, next_idx)
+        # Animation delay
+        self.root.after(150, self.animate_gif, next_idx)
 
     def browse_directory(self):
         path = filedialog.askdirectory()

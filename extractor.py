@@ -6,10 +6,12 @@ import zipfile
 import threading
 from scanner_utils import is_fantage_related
 
+# To-do: Clean up code but not now, too lazy
+
 class FantageExtractor:
     def __init__(self, output_dir, update_callback, search_path=None):
         self.output_dir = output_dir
-        self.update_callback = update_callback  # Function to call with status updates (msg, progress_increment)
+        self.update_callback = update_callback  # Function to call with status
         self.search_path = search_path
         self.stop_event = threading.Event()
         self.files_found = 0
@@ -33,8 +35,8 @@ class FantageExtractor:
                 bitmask >>= 1
             roots = drives
         else:
-            # Linux / Mac
-            # Scan home directory and root (but be careful with root)
+            # For Linux & Mac
+            # Scan home directory and root
             user_home = os.path.expanduser("~")
             roots.append(user_home)
             
@@ -62,6 +64,17 @@ class FantageExtractor:
                 os.path.join(local_appdata, 'Mozilla', 'Firefox', 'Profiles'), # Search all profiles
                 os.path.join(local_appdata, 'Microsoft', 'Edge', 'User Data', 'Default', 'Cache'),
                 os.path.join(local_appdata, 'Microsoft', 'Windows', 'INetCache'), # IE/Edge Legacy
+                # Opera
+                os.path.join(local_appdata, 'Opera Software', 'Opera Stable', 'Cache'),
+                os.path.join(local_appdata, 'Opera Software', 'Opera GX Stable', 'Cache'),
+                # Brave
+                os.path.join(local_appdata, 'BraveSoftware', 'Brave-Browser', 'User Data', 'Default', 'Cache'),
+                os.path.join(local_appdata, 'BraveSoftware', 'Brave-Browser', 'User Data', 'Default', 'Code Cache'),
+                # Vivaldi
+                os.path.join(local_appdata, 'Vivaldi', 'User Data', 'Default', 'Cache'),
+                os.path.join(local_appdata, 'Vivaldi', 'User Data', 'Default', 'Code Cache'),
+                # Safari (Old Windows one that's discontinued but will check just in case cuz Fantage is old)
+                os.path.join(local_appdata, 'Apple Computer', 'Safari'),
             ])
             
         elif system == "Darwin": # Mac
@@ -78,7 +91,7 @@ class FantageExtractor:
                 os.path.join(cache_home, 'google-chrome'),
                 os.path.join(cache_home, 'mozilla', 'firefox'),
                 os.path.join(cache_home, 'chromium'),
-                os.path.join(user_home, '.mozilla', 'firefox'), # sometimes here
+                os.path.join(user_home, '.mozilla', 'firefox'), # Sometimes here
             ])
             
         # Filter existing paths
@@ -97,7 +110,7 @@ class FantageExtractor:
             
             processed_files = set()
 
-            # Priority Scan: Browser Caches (Only if no specific path is set)
+            # Most Important: Browser Caches (Only if no specific path is set)
             if not self.search_path:
                 browser_paths = self.get_browser_cache_paths()
                 self.update_callback("Scanning Browser Caches...", 0)
@@ -123,9 +136,7 @@ class FantageExtractor:
             
             skip_dirs = {
                 '/proc', '/sys', '/dev', '/run', '/tmp', '/var/run', '/var/lock',
-                'C:\\Windows', 'C:\\Program Files', 'C:\\Program Files (x86)' # Optional: skip sys dirs to speed up?
-                # User asked for "Every drive", so we shouldn't skip Program Files necessarily, 
-                # but /proc etc are effectively infinite loops or virtual files on Linux.
+                'C:\\Windows', 'C:\\Program Files', 'C:\\Program Files (x86)' 
             }
             
             for drive_root in roots:
@@ -133,23 +144,17 @@ class FantageExtractor:
                 for root, dirs, files in os.walk(drive_root, topdown=True):
                     if self.stop_event.is_set(): return
                     
-                    # Modifying dirs in-place to prune search
+                    # Modifying dirs in place to prune search
                     dirs[:] = [d for d in dirs if os.path.join(root, d) not in skip_dirs]
                     
-                    # Optimization: If folder name has "fantage", take everything inside?
-                    # Plan says: search for any file or directory containing "fantage"
-                    
-                    is_fantage_folder = "fantage" in os.path.basename(root).lower()
+                    # If folder name has "fantage", take everything inside
+                    is_fantage_folder = "fantage" in root.lower()
                     
                     for file in files:
                         full_path = os.path.join(root, file)
                         if full_path in processed_files: 
                             continue
                             
-                        # If folder is fantage, verify user wants ALL content? "compiles every trace" -> Yes.
-                        # If not, check file individually.
-                        # For general files, we do NOT deep read content to safe time, unless filename matches.
-                        
                         should_copy = False
                         if is_fantage_folder:
                              should_copy = True
@@ -159,7 +164,7 @@ class FantageExtractor:
                         if should_copy:
                              self._copy_file(full_path, extract_base)
 
-            # Zip Phase
+            # Zip it
             self.update_callback("Zipping files...", 90)
             zip_path = os.path.join(self.output_dir, "Fantage_Cache_Extracted.zip")
             self._make_zip(extract_base, zip_path)
@@ -174,9 +179,7 @@ class FantageExtractor:
     def _copy_file(self, source, dest_root):
         try:
             # Recreate folder structure
-            # e.g. source: /home/user/cache/foo
-            # dest: dest_root/home/user/cache/foo
-            
+
             # Remove drive colon for Windows paths to make them valid folder names
             clean_source = os.path.normpath(source)
             if platform.system() == "Windows":

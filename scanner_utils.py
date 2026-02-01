@@ -21,8 +21,6 @@ def is_fantage_related(filepath, is_cache_dir=False):
             return True
             
         # 2. Check Content (only if in cache dir or suspicious)
-        # We limit specific content checks to avoid performance hits on massive files,
-        # but for cache files, they are usually small.
         if is_cache_dir:
             try:
                 # Read first 10MB to be safe, usually cache files are small
