@@ -1,0 +1,2 @@
+pyinstaller
+# Note: tkinter is a system requirement. on Linux install via: sudo apt install python3-tk
