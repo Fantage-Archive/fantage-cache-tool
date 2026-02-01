@@ -42,7 +42,7 @@
  [],
  False,
  False,
- 1769962256,
+ 1769968537,
  [('run',
    '/home/safi/Desktop/Games/Cache-Extraction/env/lib/python3.13/site-packages/PyInstaller/bootloader/Linux-64bit-arm/run',
    'EXECUTABLE')],
