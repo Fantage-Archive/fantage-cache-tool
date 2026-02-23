@@ -65,7 +65,7 @@ class App:
         self.dir_frame = ttk.LabelFrame(root, text="Search Scope")
         self.dir_frame.pack(pady=10, padx=20, fill="x")
         
-        self.selected_dir = tk.StringVar(value="All Drives (Default)")
+        self.selected_dir = tk.StringVar(value="Browser Caches Only (Default)")
         self.path_label = ttk.Label(self.dir_frame, textvariable=self.selected_dir, font=("Consolas", 8))
         self.path_label.pack(side="left", padx=5, expand=True, fill="x")
         
@@ -73,6 +73,16 @@ class App:
         self.browse_btn.pack(side="right", padx=5, pady=5)
         
         self.custom_path = None
+
+        # Keyword Selection
+        self.kw_frame = ttk.Frame(root)
+        self.kw_frame.pack(pady=5, padx=20, fill="x")
+        
+        ttk.Label(self.kw_frame, text="Search Keyword:").pack(side="left", padx=5)
+        
+        self.keyword_var = tk.StringVar(value="fantage")
+        self.keyword_entry = ttk.Entry(self.kw_frame, textvariable=self.keyword_var, width=20)
+        self.keyword_entry.pack(side="left", padx=5)
 
         # Progress
         self.progress = ttk.Progressbar(root, orient="horizontal", length=400, mode="indeterminate")
@@ -114,11 +124,17 @@ class App:
 
     def start_scan(self):
         output_dir = os.getcwd() # Save to where the executable is being run
-        self.extractor = FantageExtractor(output_dir, self.update_status, search_path=self.custom_path)
+        keyword = self.keyword_var.get().strip()
+        if not keyword:
+            messagebox.showerror("Error", "Please enter a search keyword.")
+            return
+
+        self.extractor = FantageExtractor(output_dir, self.update_status, search_path=self.custom_path, keyword=keyword)
         
         self.start_btn.config(state="disabled")
         self.stop_btn.config(state="normal")
         self.browse_btn.config(state="disabled") # Lock selection during scan
+        self.keyword_entry.config(state="disabled")
         self.progress.start(10)
         
         self.thread = threading.Thread(target=self.run_extractor)
@@ -143,6 +159,8 @@ class App:
         self.progress.stop()
         self.start_btn.config(state="normal")
         self.stop_btn.config(state="disabled")
+        self.browse_btn.config(state="normal")
+        self.keyword_entry.config(state="normal")
         self.status_var.set("Scan complete.")
         messagebox.showinfo("Done", "Extraction Complete! The folder has been opened.")
 
