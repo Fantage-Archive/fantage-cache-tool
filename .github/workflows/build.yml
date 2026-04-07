@@ -9,24 +9,23 @@ on:
 permissions:
   contents: write
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     strategy:
       matrix:
         include:
-          # Windows (x86_64 — also runs on ARM64 Windows via emulation)
+          # Windows x64
           - os: windows-latest
             artifact: FantageArchiveCacheTool-Windows-x64
 
-          # macOS Apple Silicon (ARM64) — used for universal binary
+          # macOS ARM64 (Apple Silicon)
           - os: macos-latest
             artifact: FantageArchiveCacheTool-macOS-arm64
 
-          # macOS Intel (x86_64) — used for universal binary
-          - os: macos-13
-            artifact: FantageArchiveCacheTool-macOS-x64
-
-          # Linux (x86_64)
+          # Linux x64
           - os: ubuntu-latest
             artifact: FantageArchiveCacheTool-Linux-x64
 
@@ -98,15 +97,11 @@ jobs:
           cp artifacts/FantageArchiveCacheTool-Windows-x64/FantageArchiveCacheTool.exe \
              release/FantageArchiveCacheTool-Windows.exe
 
-          # ---- macOS Universal (merge ARM64 + x86_64 with lipo) ----
+          # ---- macOS (Apple Silicon, runs on Intel via Rosetta 2) ----
           chmod +x artifacts/FantageArchiveCacheTool-macOS-arm64/FantageArchiveCacheTool
-          chmod +x artifacts/FantageArchiveCacheTool-macOS-x64/FantageArchiveCacheTool
-          lipo -create \
-            artifacts/FantageArchiveCacheTool-macOS-arm64/FantageArchiveCacheTool \
-            artifacts/FantageArchiveCacheTool-macOS-x64/FantageArchiveCacheTool \
-            -output release/FantageArchiveCacheTool
-          chmod +x release/FantageArchiveCacheTool
-          cd release && zip FantageArchiveCacheTool-macOS-Universal.zip FantageArchiveCacheTool && rm FantageArchiveCacheTool && cd ..
+          cd artifacts/FantageArchiveCacheTool-macOS-arm64
+          zip ../../release/FantageArchiveCacheTool-macOS.zip FantageArchiveCacheTool
+          cd ../..
 
           # ---- Linux x64 ----
           chmod +x artifacts/FantageArchiveCacheTool-Linux-x64/FantageArchiveCacheTool
@@ -125,7 +120,7 @@ jobs:
           | Name | File | OS |
           |------|------|----|
           | Windows Executable | [FantageArchiveCacheTool-Windows.exe](REPO_URL_PLACEHOLDER/FantageArchiveCacheTool-Windows.exe) | ![Windows](https://img.shields.io/badge/-Windows-0078D4?logo=windows&logoColor=white) |
-          | macOS Universal (Intel + Apple Silicon) | [FantageArchiveCacheTool-macOS-Universal.zip](REPO_URL_PLACEHOLDER/FantageArchiveCacheTool-macOS-Universal.zip) | ![macOS](https://img.shields.io/badge/-macOS-000000?logo=apple&logoColor=white) |
+          | macOS (Apple Silicon, Intel via Rosetta) | [FantageArchiveCacheTool-macOS.zip](REPO_URL_PLACEHOLDER/FantageArchiveCacheTool-macOS.zip) | ![macOS](https://img.shields.io/badge/-macOS-000000?logo=apple&logoColor=white) |
           | Linux | [FantageArchiveCacheTool-Linux.tar.gz](REPO_URL_PLACEHOLDER/FantageArchiveCacheTool-Linux.tar.gz) | ![Linux](https://img.shields.io/badge/-Linux-FCC624?logo=linux&logoColor=black) |
 
           ## What's New
