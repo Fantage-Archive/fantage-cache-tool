@@ -1,4 +1,9 @@
+<div align="center">
+  <img src="assets/FA_logo.png" alt="FA Logo" width="100"/>
+
 # Fantage Archive Cache Tool
+
+</div>
 
 A desktop tool that scans your computer for Fantage related cache files (Flash SharedObjects, browser caches, etc.) and extracts them into a zip folder.
 
@@ -48,8 +53,8 @@ python3 -m src.main
 │   ├── extractor.py         # Scanning and extraction logic
 │   └── scanner_utils.py     # Keyword matching helper
 ├── assets/
-│   ├── FA_logo.png         
-│   └── thatsonecrazymonkey.gif  
+│   ├── FA_logo.png
+│   └── thatsonecrazymonkey.gif
 ├── .github/workflows/build.yml  # CI: cross platform builds
 ├── FantageArchiveCacheTool.spec  # PyInstaller build spec
 ├── BUILD_INSTRUCTIONS.md
