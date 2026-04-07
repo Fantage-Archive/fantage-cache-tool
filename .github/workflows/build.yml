@@ -114,8 +114,37 @@ jobs:
           tar czf ../../release/FantageArchiveCacheTool-Linux.tar.gz FantageArchiveCacheTool
           cd ../..
 
+      - name: Generate release notes
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          REPO_URL="https://github.com/${{ github.repository }}/releases/download/${VERSION}"
+
+          cat > release_notes.md << 'BODY'
+          ## Downloads
+
+          | Name | File | OS |
+          |------|------|----|
+          | Windows Executable | [FantageArchiveCacheTool-Windows.exe](REPO_URL_PLACEHOLDER/FantageArchiveCacheTool-Windows.exe) | ![Windows](https://img.shields.io/badge/-Windows-0078D4?logo=windows&logoColor=white) |
+          | macOS Universal (Intel + Apple Silicon) | [FantageArchiveCacheTool-macOS-Universal.zip](REPO_URL_PLACEHOLDER/FantageArchiveCacheTool-macOS-Universal.zip) | ![macOS](https://img.shields.io/badge/-macOS-000000?logo=apple&logoColor=white) |
+          | Linux | [FantageArchiveCacheTool-Linux.tar.gz](REPO_URL_PLACEHOLDER/FantageArchiveCacheTool-Linux.tar.gz) | ![Linux](https://img.shields.io/badge/-Linux-FCC624?logo=linux&logoColor=black) |
+
+          ## What's New
+
+          ### Features
+          - Scans 30+ browsers including Chrome, Firefox, Edge, Brave, Opera, Vivaldi, Waterfox, Pale Moon, SeaMonkey, Maxthon, and more
+          - Targets Macromedia Flash Player SharedObjects, Adobe Flash standalone, PepperFlash (per-browser), and Shockwave Player
+          - Extracted files maintain their original path hierarchy so you can see exactly where they came from
+          - Works on Windows, macOS, and Linux as a single standalone executable
+          - Stop anytime and still get a zip of everything found so far
+          - Username tagging for output folder and zip file naming
+          - Built-in instructions popup on first launch
+          BODY
+
+          sed -i '' "s|REPO_URL_PLACEHOLDER|${REPO_URL}|g" release_notes.md
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          name: "Version ${GITHUB_REF#refs/tags/v}"
           files: release/*
-          generate_release_notes: true
+          body_path: release_notes.md
