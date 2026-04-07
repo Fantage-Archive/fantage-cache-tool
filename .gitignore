@@ -1,8 +1,9 @@
 # Python
 __pycache__/
 *.pyc
+*.pyo
 
-# Environments
+# Virtual environments
 env/
 venv/
 .venv/
@@ -10,3 +11,19 @@ venv/
 # PyInstaller
 build/
 dist/
+*.spec.bak
+
+# Extraction output (generated at runtime)
+Fantage_Extraction*/
+Fantage_Cache*.zip
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

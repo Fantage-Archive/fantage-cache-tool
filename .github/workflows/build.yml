@@ -1,0 +1,121 @@
+name: Build Releases
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          # Windows (x86_64 — also runs on ARM64 Windows via emulation)
+          - os: windows-latest
+            artifact: FantageArchiveCacheTool-Windows-x64
+
+          # macOS Apple Silicon (ARM64) — used for universal binary
+          - os: macos-latest
+            artifact: FantageArchiveCacheTool-macOS-arm64
+
+          # macOS Intel (x86_64) — used for universal binary
+          - os: macos-13
+            artifact: FantageArchiveCacheTool-macOS-x64
+
+          # Linux (x86_64)
+          - os: ubuntu-latest
+            artifact: FantageArchiveCacheTool-Linux-x64
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-tk
+
+      - name: Install Python dependencies
+        run: |
+          pip install pyinstaller Pillow
+
+      - name: Build executable (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          pyinstaller --noconfirm --onefile --windowed \
+            --name "FantageArchiveCacheTool" \
+            --add-data "assets/thatsonecrazymonkey.gif:." \
+            --add-data "assets/FA_logo.png:." \
+            --hidden-import "PIL._tkinter_finder" \
+            src/main.py
+
+      - name: Build executable (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          pyinstaller --noconfirm --onefile --windowed `
+            --name "FantageArchiveCacheTool" `
+            --add-data "assets\thatsonecrazymonkey.gif;." `
+            --add-data "assets\FA_logo.png;." `
+            --hidden-import "PIL._tkinter_finder" `
+            --icon "assets\FA_logo.png" `
+            src\main.py
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/FantageArchiveCacheTool*
+
+  release:
+    needs: build
+    runs-on: macos-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare release files
+        run: |
+          mkdir -p release
+
+          # ---- Windows x64 ----
+          cp artifacts/FantageArchiveCacheTool-Windows-x64/FantageArchiveCacheTool.exe \
+             release/FantageArchiveCacheTool-Windows.exe
+
+          # ---- macOS Universal (merge ARM64 + x86_64 with lipo) ----
+          chmod +x artifacts/FantageArchiveCacheTool-macOS-arm64/FantageArchiveCacheTool
+          chmod +x artifacts/FantageArchiveCacheTool-macOS-x64/FantageArchiveCacheTool
+          lipo -create \
+            artifacts/FantageArchiveCacheTool-macOS-arm64/FantageArchiveCacheTool \
+            artifacts/FantageArchiveCacheTool-macOS-x64/FantageArchiveCacheTool \
+            -output release/FantageArchiveCacheTool
+          chmod +x release/FantageArchiveCacheTool
+          cd release && zip FantageArchiveCacheTool-macOS-Universal.zip FantageArchiveCacheTool && rm FantageArchiveCacheTool && cd ..
+
+          # ---- Linux x64 ----
+          chmod +x artifacts/FantageArchiveCacheTool-Linux-x64/FantageArchiveCacheTool
+          cd artifacts/FantageArchiveCacheTool-Linux-x64
+          tar czf ../../release/FantageArchiveCacheTool-Linux.tar.gz FantageArchiveCacheTool
+          cd ../..
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
+          generate_release_notes: true

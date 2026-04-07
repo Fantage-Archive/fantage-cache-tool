@@ -1,4 +1,3 @@
-
 import os
 
 def is_related(filepath, keyword="fantage"):

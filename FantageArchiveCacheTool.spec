@@ -3,11 +3,14 @@
 block_cipher = None
 
 a = Analysis(
-    ['main.py'],
+    ['src/main.py'],
     pathex=[],
     binaries=[],
-    datas=[('thatsonecrazymonkey.gif', '.')],
-    hiddenimports=[],
+    datas=[
+        ('assets/thatsonecrazymonkey.gif', '.'),
+        ('assets/FA_logo.png', '.'),
+    ],
+    hiddenimports=['PIL._tkinter_finder'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -22,9 +25,11 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 exe = EXE(
     pyz,
     a.scripts,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
     [],
-    exclude_binaries=True,
-    name='FantageCacheExtractor',
+    name='FantageArchiveCacheTool',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -35,14 +40,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-)
-coll = COLLECT(
-    exe,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
-    strip=False,
-    upx=True,
-    upx_exclude=[],
-    name='FantageCacheExtractor',
+    icon='assets/FA_logo.png',
 )
