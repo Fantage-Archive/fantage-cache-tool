@@ -7,14 +7,14 @@
 
 A desktop tool that scans your computer for Fantage-related cache files (Flash SharedObjects, browser caches, etc.) and extracts them into a zip folder, preserving the original directory structure.
 
-Built for the [Fantage Archive](https://github.com/shersafi/Fantage-Archive) project.
+Built for the [Fantage Archive](https://fantagearchive.com/) project.
 
 ## How to Use
 
-1. Download the correct version for the computer that has the cache (see Downloads below)
+1. Download the correct version for the computer that has the cache (see Download below)
 2. Put it on a USB flash drive from **another** computer
 3. Plug the flash drive into the computer with the cache
-4. **Turn off the internet** on that computer (browsers auto-clear old caches when they connect)
+4. **Turn off the internet** on that computer (browsers auto clear old caches when they connect)
 5. **Close all browsers** (they can lock or overwrite cache files while running)
 6. **Do NOT clear your browser history or caches**
 7. Run the tool directly from the flash drive
