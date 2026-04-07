@@ -21,9 +21,9 @@ jobs:
           - os: windows-latest
             artifact: FantageArchiveCacheTool-Windows-x64
 
-          # macOS ARM64 (Apple Silicon)
-          - os: macos-latest
-            artifact: FantageArchiveCacheTool-macOS-arm64
+          # macOS x64 (Intel, runs on Apple Silicon via Rosetta 2)
+          - os: macos-13
+            artifact: FantageArchiveCacheTool-macOS-x64
 
           # Linux x64
           - os: ubuntu-latest
@@ -80,7 +80,7 @@ jobs:
 
   release:
     needs: build
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
 
     steps:
@@ -97,9 +97,9 @@ jobs:
           cp artifacts/FantageArchiveCacheTool-Windows-x64/FantageArchiveCacheTool.exe \
              release/FantageArchiveCacheTool-Windows.exe
 
-          # ---- macOS (Apple Silicon, runs on Intel via Rosetta 2) ----
-          chmod +x artifacts/FantageArchiveCacheTool-macOS-arm64/FantageArchiveCacheTool
-          cd artifacts/FantageArchiveCacheTool-macOS-arm64
+          # ---- macOS x64 (Intel, Apple Silicon via Rosetta 2) ----
+          chmod +x artifacts/FantageArchiveCacheTool-macOS-x64/FantageArchiveCacheTool
+          cd artifacts/FantageArchiveCacheTool-macOS-x64
           zip ../../release/FantageArchiveCacheTool-macOS.zip FantageArchiveCacheTool
           cd ../..
 
@@ -116,16 +116,29 @@ jobs:
           echo "CLEAN_VERSION=${CLEAN_VERSION}" >> $GITHUB_ENV
           REPO_URL="https://github.com/${{ github.repository }}/releases/download/${VERSION}"
 
-          cat > release_notes.md << 'BODY'
+          cat > release_notes.md << BODY
           ## Downloads
 
           | Name | File | OS |
           |------|------|----|
-          | Windows Executable | [FantageArchiveCacheTool-Windows.exe](REPO_URL_PLACEHOLDER/FantageArchiveCacheTool-Windows.exe) | ![Windows](https://img.shields.io/badge/-Windows-0078D4?logo=windows&logoColor=white) |
-          | macOS (Apple Silicon, Intel via Rosetta) | [FantageArchiveCacheTool-macOS.zip](REPO_URL_PLACEHOLDER/FantageArchiveCacheTool-macOS.zip) | ![macOS](https://img.shields.io/badge/-macOS-000000?logo=apple&logoColor=white) |
-          | Linux | [FantageArchiveCacheTool-Linux.tar.gz](REPO_URL_PLACEHOLDER/FantageArchiveCacheTool-Linux.tar.gz) | ![Linux](https://img.shields.io/badge/-Linux-FCC624?logo=linux&logoColor=black) |
+          | Windows Executable | [FantageArchiveCacheTool-Windows.exe](${REPO_URL}/FantageArchiveCacheTool-Windows.exe) | ![Windows](https://img.shields.io/badge/-Windows-0078D4?logo=windows&logoColor=white) |
+          | macOS (Intel, runs on Apple Silicon via Rosetta) | [FantageArchiveCacheTool-macOS.zip](${REPO_URL}/FantageArchiveCacheTool-macOS.zip) | ![macOS](https://img.shields.io/badge/-macOS-000000?logo=apple&logoColor=white) |
+          | Linux | [FantageArchiveCacheTool-Linux.tar.gz](${REPO_URL}/FantageArchiveCacheTool-Linux.tar.gz) | ![Linux](https://img.shields.io/badge/-Linux-FCC624?logo=linux&logoColor=black) |
 
-          ## What's New
+          ## How to Use
+
+          1. Download the correct version for the computer that has the cache
+          2. Put it on a USB flash drive from another computer
+          3. Plug the flash drive into the computer with the cache
+          4. Turn off the internet on that computer (browsers auto-clear old caches when they connect)
+          5. Close all browsers (they can lock or overwrite cache files while running)
+          6. Do NOT clear your browser history or caches
+          7. Run the tool directly from the flash drive
+          8. Enter your Discord or Fantage username when prompted
+          9. Click Start Extraction and wait for it to finish
+          10. Send the generated .zip file to the Fantage Archive / Rewritten team
+
+          ## What's New in ${CLEAN_VERSION}
 
           ### Features
           - Scans 30+ browsers including Chrome, Firefox, Edge, Brave, Opera, Vivaldi, Waterfox, Pale Moon, SeaMonkey, Maxthon, and more
@@ -136,8 +149,6 @@ jobs:
           - Username tagging for output folder and zip file naming
           - Built-in instructions popup on first launch
           BODY
-
-          sed -i '' "s|REPO_URL_PLACEHOLDER|${REPO_URL}|g" release_notes.md
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
