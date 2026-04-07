@@ -450,8 +450,11 @@ class App:
             self.status_var.set(f"Target: {display_path}")
 
     def start_scan(self):
-        # Output goes to project root (one level up from src/)
-        output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
+        # Output goes next to the executable (PyInstaller) or project root (dev)
+        if getattr(sys, 'frozen', False):
+            output_dir = os.path.dirname(sys.executable)
+        else:
+            output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
         keyword = self.keyword_var.get().strip()
         if not keyword:
             messagebox.showerror("Error", "Please enter a search keyword.")
