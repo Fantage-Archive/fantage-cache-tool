@@ -112,6 +112,8 @@ jobs:
       - name: Generate release notes
         run: |
           VERSION=${GITHUB_REF#refs/tags/}
+          CLEAN_VERSION=${VERSION#v}
+          echo "CLEAN_VERSION=${CLEAN_VERSION}" >> $GITHUB_ENV
           REPO_URL="https://github.com/${{ github.repository }}/releases/download/${VERSION}"
 
           cat > release_notes.md << 'BODY'
@@ -140,6 +142,6 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: "Version ${GITHUB_REF#refs/tags/v}"
+          name: "Version ${{ env.CLEAN_VERSION }}"
           files: release/*
           body_path: release_notes.md
