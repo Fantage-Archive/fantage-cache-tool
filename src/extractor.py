@@ -7,9 +7,81 @@ import uuid
 import zipfile
 import threading
 try:
-    from scanner_utils import is_related
+    from scanner_utils import classify_directory, is_contextual_candidate, is_opaque_cache_file, is_related
 except ImportError:
-    from src.scanner_utils import is_related
+    from src.scanner_utils import classify_directory, is_contextual_candidate, is_opaque_cache_file, is_related
+
+BROWSER_DISCOVERY_KEYWORDS = (
+    "arc",
+    "avast",
+    "basilisk",
+    "brave",
+    "browser",
+    "cent",
+    "chrome",
+    "chromium",
+    "coccoc",
+    "comodo",
+    "dragon",
+    "edge",
+    "epic",
+    "firefox",
+    "floorp",
+    "icedragon",
+    "iridium",
+    "kmelon",
+    "librewolf",
+    "maxthon",
+    "mozilla",
+    "navigator",
+    "opera",
+    "palemoon",
+    "seamonkey",
+    "sidekick",
+    "slimjet",
+    "thorium",
+    "torch",
+    "ucbrowser",
+    "vivaldi",
+    "waterfox",
+    "whale",
+    "yandex",
+    "zen",
+)
+
+BROWSER_VENDOR_HINTS = {
+    "apple computer",
+    "avast software",
+    "bravesoftware",
+    "comodo",
+    "google",
+    "maxthon",
+    "microsoft",
+    "mozilla",
+    "moonchild productions",
+    "naver",
+    "opera software",
+    "the browser company",
+    "vivaldi",
+    "waterfox",
+    "yandex",
+}
+
+PROFILE_HINT_NAMES = {
+    "application support",
+    "browser",
+    "cache",
+    "cache2",
+    "inetcache",
+    "local storage",
+    "profile",
+    "profiles",
+    "session storage",
+    "temporary internet files",
+    "user data",
+}
+
+ALLOWED_OUTPUT_EXTENSIONS = {".jpg", ".jpeg", ".png", ".sol", ".swf", ".xml"}
 
 class FantageExtractor:
     def __init__(self, output_dir, update_callback, search_path=None, keyword="fantage", username=""):
@@ -20,6 +92,92 @@ class FantageExtractor:
         self.username = username
         self.stop_event = threading.Event()
         self.files_found = 0
+
+    @staticmethod
+    def _discover_browser_roots(*base_dirs):
+        found = []
+        seen = set()
+
+        def remember(path):
+            if os.path.isdir(path) and path not in seen:
+                seen.add(path)
+                found.append(path)
+
+        def scan(path, depth):
+            if depth > 2 or not os.path.isdir(path):
+                return
+
+            try:
+                entries = list(os.scandir(path))
+            except OSError:
+                return
+
+            for entry in entries:
+                if not entry.is_dir(follow_symlinks=False):
+                    continue
+
+                name = entry.name.lower()
+                browser_like = any(keyword in name for keyword in BROWSER_DISCOVERY_KEYWORDS)
+                profile_like = name in PROFILE_HINT_NAMES
+                if browser_like or profile_like:
+                    remember(entry.path)
+
+                should_recurse = browser_like or name in BROWSER_VENDOR_HINTS
+                if should_recurse:
+                    scan(entry.path, depth + 1)
+
+        for base_dir in base_dirs:
+            scan(base_dir, 0)
+
+        return found
+
+    @staticmethod
+    def _add_chromium_root(add, browser_root):
+        if not os.path.exists(browser_root):
+            return
+
+        add(browser_root)
+        try:
+            entries = list(os.scandir(browser_root))
+        except OSError:
+            return
+
+        for entry in entries:
+            if not entry.is_dir(follow_symlinks=False):
+                continue
+
+            name = entry.name.lower()
+            if name == "default" or name.startswith("profile ") or name in {"guest profile", "system profile"}:
+                add(os.path.join(entry.path, "Cache"))
+                add(os.path.join(entry.path, "Code Cache"))
+                add(os.path.join(entry.path, "GPUCache"))
+                add(os.path.join(entry.path, "IndexedDB"))
+                add(os.path.join(entry.path, "Local Storage"))
+                add(os.path.join(entry.path, "Service Worker"))
+                add(os.path.join(entry.path, "Session Storage"))
+                add(os.path.join(entry.path, "Pepper Data", "Shockwave Flash", "WritableRoot"))
+                add(os.path.join(entry.path, "Pepper Data", "Shockwave Flash", "WritableRoot", "#SharedObjects"))
+
+    @staticmethod
+    def _numbered_name(base_name, index):
+        return base_name if index == 1 else f"{base_name}_{index}"
+
+    @classmethod
+    def _next_output_targets(cls, output_dir, folder_base_name, zip_base_name):
+        index = 1
+        while True:
+            numbered_folder = cls._numbered_name(folder_base_name, index)
+            numbered_zip = cls._numbered_name(zip_base_name, index)
+            folder_path = os.path.join(output_dir, numbered_folder)
+            zip_path = os.path.join(output_dir, f"{numbered_zip}.zip")
+            if not os.path.exists(folder_path) and not os.path.exists(zip_path):
+                return folder_path, zip_path
+            index += 1
+
+    @staticmethod
+    def _should_copy_file(path):
+        _, ext = os.path.splitext(path)
+        return ext.lower() in ALLOWED_OUTPUT_EXTENSIONS
 
     def get_all_cache_paths(self):
         """
@@ -60,11 +218,22 @@ class FantageExtractor:
             # ============================================================
             chromium_browsers = [
                 os.path.join(local_appdata, 'Google', 'Chrome', 'User Data'),
+                os.path.join(local_appdata, 'Google', 'Chrome Beta', 'User Data'),
+                os.path.join(local_appdata, 'Google', 'Chrome SxS', 'User Data'),
                 os.path.join(local_appdata, 'Microsoft', 'Edge', 'User Data'),
+                os.path.join(local_appdata, 'Microsoft', 'Edge Beta', 'User Data'),
+                os.path.join(local_appdata, 'Microsoft', 'Edge Dev', 'User Data'),
+                os.path.join(local_appdata, 'Microsoft', 'Edge SxS', 'User Data'),
                 os.path.join(local_appdata, 'BraveSoftware', 'Brave-Browser', 'User Data'),
                 os.path.join(local_appdata, 'Vivaldi', 'User Data'),
                 os.path.join(local_appdata, 'Yandex', 'YandexBrowser', 'User Data'),
                 os.path.join(local_appdata, 'Chromium', 'User Data'),
+                os.path.join(local_appdata, 'Thorium', 'User Data'),
+                os.path.join(local_appdata, 'The Browser Company', 'Arc', 'User Data'),
+                os.path.join(local_appdata, 'Sidekick', 'User Data'),
+                os.path.join(local_appdata, 'Naver', 'Naver Whale', 'User Data'),
+                os.path.join(local_appdata, 'Avast Software', 'Browser', 'User Data'),
+                os.path.join(local_appdata, 'CCleaner Browser', 'User Data'),
                 os.path.join(local_appdata, 'CentBrowser', 'User Data'),
                 os.path.join(local_appdata, 'Comodo', 'Dragon', 'User Data'),
                 os.path.join(local_appdata, 'Torch', 'User Data'),
@@ -80,19 +249,20 @@ class FantageExtractor:
                 os.path.join(local_appdata, 'Iridium', 'User Data'),
             ]
 
-            # Also specifically target PepperFlash SharedObjects in Default profile
             for browser_path in chromium_browsers:
-                if os.path.exists(browser_path):
-                    add(browser_path)
-                    pepper_path = os.path.join(browser_path, 'Default', 'Pepper Data',
-                                               'Shockwave Flash', 'WritableRoot', '#SharedObjects')
-                    add(pepper_path)
+                self._add_chromium_root(add, browser_path)
 
             # ============================================================
             # 3. Firefox family Browsers
             # ============================================================
             add(os.path.join(local_appdata, 'Mozilla', 'Firefox', 'Profiles'))
             add(os.path.join(roaming_appdata, 'Mozilla', 'Firefox', 'Profiles'))
+            add(os.path.join(local_appdata, 'LibreWolf', 'Profiles'))
+            add(os.path.join(roaming_appdata, 'LibreWolf', 'Profiles'))
+            add(os.path.join(local_appdata, 'Floorp', 'Profiles'))
+            add(os.path.join(roaming_appdata, 'Floorp', 'Profiles'))
+            add(os.path.join(local_appdata, 'Zen', 'Profiles'))
+            add(os.path.join(roaming_appdata, 'Zen', 'Profiles'))
             add(os.path.join(local_appdata, 'Waterfox', 'Profiles'))
             add(os.path.join(roaming_appdata, 'Waterfox', 'Profiles'))
             add(os.path.join(local_appdata, 'Moonchild Productions', 'Pale Moon', 'Profiles'))
@@ -142,6 +312,8 @@ class FantageExtractor:
             # ============================================================
             add(temp_dir)
             add(local_low)  # Unity Web Player and others
+            for browser_root in self._discover_browser_roots(local_appdata, roaming_appdata, local_low):
+                add(browser_root)
             
         elif system == "Darwin": # Mac
             library = os.path.join(user_home, 'Library')
@@ -157,11 +329,18 @@ class FantageExtractor:
             # PepperFlash across Chromium browsers
             for browser_dir in [
                 os.path.join('Google', 'Chrome'),
+                os.path.join('Google', 'Chrome Beta'),
+                os.path.join('Google', 'Chrome Canary'),
+                os.path.join('Google', 'Chrome Dev'),
                 'Chromium',
                 'Vivaldi',
                 os.path.join('BraveSoftware', 'Brave-Browser'),
+                os.path.join('The Browser Company', 'Arc'),
                 'Microsoft Edge',
                 os.path.join('Yandex', 'YandexBrowser'),
+                'LibreWolf',
+                'Floorp',
+                'Zen',
                 'Opera Software',
             ]:
                 pepper = os.path.join(app_support, browser_dir, 'Default', 'Pepper Data',
@@ -174,10 +353,19 @@ class FantageExtractor:
             add(os.path.join(library, 'Safari'))
             add(os.path.join(caches, 'Firefox', 'Profiles'))
             add(os.path.join(app_support, 'Firefox', 'Profiles'))
+            add(os.path.join(caches, 'LibreWolf'))
+            add(os.path.join(app_support, 'LibreWolf'))
+            add(os.path.join(caches, 'Floorp'))
+            add(os.path.join(app_support, 'Floorp'))
+            add(os.path.join(caches, 'Zen'))
+            add(os.path.join(app_support, 'Zen'))
+            for browser_root in self._discover_browser_roots(app_support, caches):
+                add(browser_root)
 
         elif system == "Linux":
             cache_home = os.environ.get('XDG_CACHE_HOME', os.path.join(user_home, '.cache'))
             config_home = os.environ.get('XDG_CONFIG_HOME', os.path.join(user_home, '.config'))
+            flatpak_config = os.path.join(user_home, '.var', 'app')
             
             # Flash
             add(os.path.join(user_home, '.macromedia', 'Flash_Player', '#SharedObjects'))
@@ -187,12 +375,20 @@ class FantageExtractor:
             # PepperFlash across Chromium browsers
             for browser_dir in [
                 'google-chrome',
+                'google-chrome-beta',
+                'google-chrome-unstable',
                 'chromium',
                 'vivaldi',
                 os.path.join('BraveSoftware', 'Brave-Browser'),
                 'microsoft-edge',
+                'microsoft-edge-beta',
+                'microsoft-edge-dev',
                 'yandex-browser',
                 'opera',
+                'librewolf',
+                'floorp',
+                'zen',
+                'thorium',
             ]:
                 pepper = os.path.join(config_home, browser_dir, 'Default', 'Pepper Data',
                                       'Shockwave Flash', 'WritableRoot', '#SharedObjects')
@@ -204,11 +400,31 @@ class FantageExtractor:
             add(os.path.join(user_home, '.mozilla'))
             add(os.path.join(config_home, 'chromium'))
             add(os.path.join(config_home, 'google-chrome'))
+            add(os.path.join(config_home, 'google-chrome-beta'))
+            add(os.path.join(config_home, 'google-chrome-unstable'))
             add(os.path.join(config_home, 'vivaldi'))
             add(os.path.join(config_home, 'opera'))
+            add(os.path.join(config_home, 'BraveSoftware', 'Brave-Browser'))
             add(os.path.join(config_home, 'brave'))
+            add(os.path.join(config_home, 'librewolf'))
+            add(os.path.join(config_home, 'floorp'))
+            add(os.path.join(config_home, 'zen'))
+            add(os.path.join(config_home, 'thorium'))
             add(os.path.join(user_home, '.config', 'waterfox'))
             add(os.path.join(user_home, '.moonchild productions', 'pale moon'))
+            add(os.path.join(cache_home, 'mozilla'))
+            add(os.path.join(cache_home, 'google-chrome'))
+            add(os.path.join(cache_home, 'chromium'))
+            add(os.path.join(cache_home, 'BraveSoftware', 'Brave-Browser'))
+            add(os.path.join(cache_home, 'librewolf'))
+            add(os.path.join(cache_home, 'floorp'))
+            add(os.path.join(cache_home, 'zen'))
+            if os.path.exists(flatpak_config):
+                add(flatpak_config)
+                for browser_root in self._discover_browser_roots(flatpak_config):
+                    add(browser_root)
+            for browser_root in self._discover_browser_roots(config_home, cache_home):
+                add(browser_root)
             
         return list(set(paths))
 
@@ -230,12 +446,9 @@ class FantageExtractor:
             if self.username:
                 safe_name = re.sub(r'[^\w\-. ]', '', self.username).strip()
             folder_name = f"Fantage_Extraction_{safe_name}" if safe_name else "Fantage_Extraction"
-            extract_base = os.path.join(self.output_dir, folder_name)
-            if os.path.exists(extract_base):
-                shutil.rmtree(extract_base, onerror=self._rm_readonly)
+            zip_name = f"Fantage_Cache_{safe_name}" if self.username and safe_name else "Fantage_Cache_Extracted"
+            extract_base, zip_path = self._next_output_targets(self.output_dir, folder_name, zip_name)
             os.makedirs(extract_base)
-            
-            processed_paths = set() # Track copied potential folders to avoid duplicates
             
             total_roots = len(scan_roots)
             if total_roots == 0:
@@ -254,21 +467,20 @@ class FantageExtractor:
                     if self.stop_event.is_set():
                         stopped = True
                         break
-                    
-                    # 1. Check Directory Name
-                    # If directory name matches, copy the WHOLE directory and skip walking into it
-                    dir_name = os.path.basename(root)
-                    if self.keyword.lower() in dir_name.lower():
-                        # We found a folder!
+
+                    copy_mode = classify_directory(root, dirs, files, self.keyword)
+                    if copy_mode == "all":
                         self._copy_directory(root, extract_base, root_path)
-                        # We don't need to traverse subdirs of this folder since we copied it all
-                        dirs[:] = [] 
+                        dirs[:] = []
                         continue
 
-                    # 2. Check Files
                     for file in files:
-                        if is_related(file, self.keyword):
-                            full_path = os.path.join(root, file)
+                        full_path = os.path.join(root, file)
+                        if not self._should_copy_file(full_path):
+                            continue
+                        if is_related(full_path, self.keyword):
+                            self._copy_file(full_path, extract_base, root_path)
+                        elif copy_mode == "files" and (is_contextual_candidate(full_path) or is_opaque_cache_file(full_path)):
                             self._copy_file(full_path, extract_base, root_path)
                 
                 if stopped:
@@ -277,14 +489,6 @@ class FantageExtractor:
             # Zip whatever was found (even if stopped early)
             if self.files_found > 0:
                 self.update_callback("Zipping files...", 90)
-                zip_name = f"Fantage_Cache_{safe_name}.zip" if self.username and safe_name else "Fantage_Cache_Extracted.zip"
-                zip_path = os.path.join(self.output_dir, zip_name)
-                # Remove existing zip to avoid appending/corruption
-                if os.path.exists(zip_path):
-                    try:
-                        os.remove(zip_path)
-                    except OSError:
-                        pass
                 self._make_zip(extract_base, zip_path)
                 status = "Stopped early — partial results zipped." if stopped else "Done!"
                 self.update_callback(status, 100)
@@ -297,19 +501,20 @@ class FantageExtractor:
             print(f"Error details: {e}")
 
     def _copy_directory(self, source_dir, dest_root, scan_root):
-        """Copies an entire directory structure, preserving the original path hierarchy."""
+        """Copies allowed files from a related directory, preserving the original path hierarchy."""
         try:
-            # Preserve original folder structure relative to the scan root
-            rel_path = os.path.relpath(source_dir, scan_root)
-            dest_path = os.path.join(dest_root, rel_path)
-            
-            if os.path.exists(dest_path): return # Already copied
-            
-            shutil.copytree(source_dir, dest_path, dirs_exist_ok=True)
-            # Count files inside
-            for _, _, files in os.walk(dest_path):
-                self.files_found += len(files)
-            
+            copied_any = False
+            for root, _, files in os.walk(source_dir):
+                for file in files:
+                    source_path = os.path.join(root, file)
+                    if not self._should_copy_file(source_path):
+                        continue
+                    self._copy_file(source_path, dest_root, scan_root)
+                    copied_any = True
+
+            if not copied_any:
+                return
+
             folder_name = os.path.basename(source_dir)
             self.update_callback(f"Found Folder: {folder_name}", 0)
             

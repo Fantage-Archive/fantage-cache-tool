@@ -277,41 +277,6 @@ class App:
         self.custom_path = None
 
         # ============================================================
-        #  Card: Keyword
-        # ============================================================
-        kw_card = tk.Frame(main_frame, bg=COLORS["card_bg"],
-                           highlightbackground=COLORS["border"],
-                           highlightthickness=2, bd=0)
-        kw_card.pack(fill="x", pady=(0, 10), ipady=10, ipadx=12)
-
-        kw_header = tk.Frame(kw_card, bg=COLORS["card_bg"])
-        kw_header.pack(fill="x", padx=12, pady=(8, 0))
-
-        tk.Label(kw_header, text="SEARCH KEYWORD",
-                 bg=COLORS["card_bg"], fg=COLORS["pink_dark"],
-                 font=FONT_LABEL).pack(side="left")
-
-        kw_input_frame = tk.Frame(kw_card, bg=COLORS["card_bg"])
-        kw_input_frame.pack(fill="x", padx=12, pady=(6, 0))
-
-        self.keyword_var = tk.StringVar(value="fantage")
-        self.keyword_entry = tk.Entry(
-            kw_input_frame, textvariable=self.keyword_var,
-            bg=COLORS["pink_light"], fg=COLORS["text_dark"],
-            font=FONT_ENTRY, relief="flat",
-            highlightbackground=COLORS["border"], highlightthickness=1,
-            insertbackground=COLORS["pink_hot"],
-            selectbackground=COLORS["pink_mid"],
-            selectforeground=COLORS["white"]
-        )
-        self.keyword_entry.pack(fill="x", ipady=5)
-
-        tk.Label(kw_input_frame,
-                 text="Files and folders matching this keyword will be extracted",
-                 bg=COLORS["card_bg"], fg=COLORS["text_light"],
-                 font=("Varela Round", 8)).pack(anchor="w", pady=(3, 0))
-
-        # ============================================================
         #  Card: Username
         # ============================================================
         user_card = tk.Frame(main_frame, bg=COLORS["card_bg"],
@@ -322,7 +287,7 @@ class App:
         user_header = tk.Frame(user_card, bg=COLORS["card_bg"])
         user_header.pack(fill="x", padx=12, pady=(8, 0))
 
-        tk.Label(user_header, text="YOUR NAME",
+        tk.Label(user_header, text="YOUR NAME (REQUIRED)",
                  bg=COLORS["card_bg"], fg=COLORS["pink_dark"],
                  font=FONT_LABEL).pack(side="left")
 
@@ -350,7 +315,42 @@ class App:
         self.username_entry.pack(fill="x", ipady=5)
 
         tk.Label(user_input_frame,
-                 text="Discord or Fantage username (max 32 chars), which is added to output folder name",
+                 text="Required. Max 32 chars. Used in output names.",
+                 bg=COLORS["card_bg"], fg=COLORS["text_light"],
+                 font=("Varela Round", 8)).pack(anchor="w", pady=(3, 0))
+
+        # ============================================================
+        #  Card: Match Hint
+        # ============================================================
+        kw_card = tk.Frame(main_frame, bg=COLORS["card_bg"],
+                           highlightbackground=COLORS["border"],
+                           highlightthickness=2, bd=0)
+        kw_card.pack(fill="x", pady=(0, 10), ipady=10, ipadx=12)
+
+        kw_header = tk.Frame(kw_card, bg=COLORS["card_bg"])
+        kw_header.pack(fill="x", padx=12, pady=(8, 0))
+
+        tk.Label(kw_header, text="OPTIONAL MATCH HINT",
+                 bg=COLORS["card_bg"], fg=COLORS["pink_dark"],
+                 font=FONT_LABEL).pack(side="left")
+
+        kw_input_frame = tk.Frame(kw_card, bg=COLORS["card_bg"])
+        kw_input_frame.pack(fill="x", padx=12, pady=(6, 0))
+
+        self.keyword_var = tk.StringVar(value="")
+        self.keyword_entry = tk.Entry(
+            kw_input_frame, textvariable=self.keyword_var,
+            bg=COLORS["pink_light"], fg=COLORS["text_dark"],
+            font=FONT_ENTRY, relief="flat",
+            highlightbackground=COLORS["border"], highlightthickness=1,
+            insertbackground=COLORS["pink_hot"],
+            selectbackground=COLORS["pink_mid"],
+            selectforeground=COLORS["white"]
+        )
+        self.keyword_entry.pack(fill="x", ipady=5)
+
+        tk.Label(kw_input_frame,
+                 text="Optional. Helps catch extra matches.",
                  bg=COLORS["card_bg"], fg=COLORS["text_light"],
                  font=("Varela Round", 8)).pack(anchor="w", pady=(3, 0))
 
@@ -456,14 +456,15 @@ class App:
         else:
             output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
         keyword = self.keyword_var.get().strip()
-        if not keyword:
-            messagebox.showerror("Error", "Please enter a search keyword.")
+        username = self.username_var.get().strip()
+        if not username:
+            messagebox.showerror("Error", "Please enter your name before scanning.")
             return
 
         self.extractor = FantageExtractor(output_dir, self.update_status,
                                           search_path=self.custom_path,
                                           keyword=keyword,
-                                          username=self.username_var.get().strip())
+                                          username=username)
 
         self.start_btn.set_disabled(True)
         self.stop_btn.set_disabled(False)
@@ -539,7 +540,7 @@ class App:
             ("1.", "Do NOT connect to the internet.\n    Browsers auto clear old caches when they sync."),
             ("2.", "Close ALL browsers before scanning.\n    Browsers may lock or overwrite cache files."),
             ("3.", "Do NOT clear your browser history or caches.\n    That's exactly what we're looking for!"),
-            ("4.", "Enter your Discord or Fantage username\n    so we know who the cache belongs to."),
+            ("4.", "Enter your Discord or Fantage username.\n    This is required so we know who the cache belongs to."),
             ("5.", "After extraction, send the generated .zip file\n    to the Fantage Archive / Rewritten team."),
         ]
 
