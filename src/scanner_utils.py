@@ -53,6 +53,16 @@ KNOWN_DIRECTORY_COMPONENTS = {
     "www.fantage.com",
 }
 
+KNOWN_DOMAIN_COMPONENTS = {
+    "fantage.com",
+    "play.fantage.com",
+    "secure.fantage.com",
+    "secm.fantage.com",
+    "static.fantage.com",
+    "upload.fantage.com",
+    "www.fantage.com",
+}
+
 SPECIAL_FILENAME_SUFFIXES = (
     ".db-journal",
     ".localstorage-journal",
@@ -267,6 +277,16 @@ CONTENT_STRONG_MARKERS = (
     b"mobilefantage",
 )
 
+BROWSER_CONTENT_STRONG_MARKERS = (
+    b"fantage.com",
+    b"play.fantage.com",
+    b"www.fantage.com",
+    b"secure.fantage.com",
+    b"static.fantage.com",
+    b"upload.fantage.com",
+    b"secm.fantage.com",
+)
+
 CONTENT_MEDIUM_MARKERS = (
     b"/r1/",
     b"/uni/",
@@ -366,6 +386,29 @@ def _path_reason(path, keyword="fantage"):
     return None
 
 
+def _browser_cache_path_reason(path):
+    normalized_path = normalize_cache_name(path)
+    parts = _normalized_parts(path)
+    cleaned_parts = [part.lstrip("#") for part in parts]
+    basename = _normalized_basename(path).lstrip("#")
+
+    if "fantage.com" in normalized_path:
+        return "Fantage domain in path"
+    if any(part in KNOWN_DOMAIN_COMPONENTS for part in cleaned_parts):
+        return "known Fantage domain directory"
+    if "fantage.com" in basename:
+        return "Fantage domain in filename"
+    return None
+
+
+def has_path_marker(path, keyword="fantage"):
+    return bool(_path_reason(path, keyword))
+
+
+def has_browser_cache_marker(path):
+    return bool(_browser_cache_path_reason(path))
+
+
 def _should_sniff_contents(path):
     try:
         size = os.path.getsize(path)
@@ -408,6 +451,21 @@ def _content_reason(path):
     medium_hits = sum(1 for marker in CONTENT_MEDIUM_MARKERS if marker in haystack)
     if medium_hits >= 2:
         return "Fantage asset markers in content"
+
+    return None
+
+
+def _browser_cache_content_reason(path):
+    if not _should_sniff_contents(path):
+        return None
+
+    blob = _read_sniff_blob(path)
+    if not blob:
+        return None
+
+    haystack = blob.lower()
+    if any(marker in haystack for marker in BROWSER_CONTENT_STRONG_MARKERS):
+        return "Fantage domain in browser cache content"
 
     return None
 
@@ -472,3 +530,7 @@ def classify_directory(path, dirs, files, keyword="fantage"):
 
 def is_related(filepath, keyword="fantage"):
     return bool(_path_reason(filepath, keyword) or _content_reason(filepath))
+
+
+def is_browser_cache_related(filepath):
+    return bool(_browser_cache_path_reason(filepath) or _browser_cache_content_reason(filepath))

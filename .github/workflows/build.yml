@@ -144,14 +144,10 @@ jobs:
 
           ## What's New in ${CLEAN_VERSION}
 
-          ### Features
-          - Scans 30+ browsers including Chrome, Firefox, Edge, Brave, Opera, Vivaldi, Waterfox, Pale Moon, SeaMonkey, Maxthon, and more
-          - Targets Macromedia Flash Player SharedObjects, Adobe Flash standalone, PepperFlash (per-browser), and Shockwave Player
-          - Extracted files maintain their original path hierarchy so you can see exactly where they came from
-          - Works on Windows, macOS, and Linux as a single standalone executable
-          - Stop anytime and still get a zip of everything found so far
-          - Username tagging for output folder and zip file naming
-          - Built-in instructions popup on first launch
+          1. The extractor was reworked to look through browser cache locations and use Fantage web addresses as the main signal.
+          2. Browser results are now sorted into folders by browser and profile so it is easier to see where each cache came from.
+          3. The tool now does a light full computer search for obvious Fantage folders and puts those results in a misc folder.
+          4. The app still asks for a username first and adds it to the output folder and zip name.
           BODY
 
       - name: Create GitHub Release

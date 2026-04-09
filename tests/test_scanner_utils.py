@@ -6,6 +6,9 @@ import zlib
 
 from src.scanner_utils import (
     classify_directory,
+    has_browser_cache_marker,
+    has_path_marker,
+    is_browser_cache_related,
     is_contextual_candidate,
     is_opaque_cache_file,
     is_related,
@@ -30,6 +33,20 @@ class ScannerUtilsTests(unittest.TestCase):
         with open(path, "wb") as handle:
             handle.write(b"UserInfo")
         self.assertTrue(is_related(path))
+
+    def test_path_marker_detects_known_fantage_paths_without_sniffing(self):
+        self.assertTrue(has_path_marker("/tmp/cache/play.fantage.com/r1/worldmap.swf"))
+        self.assertFalse(has_path_marker("/tmp/cache/google.com/index.html"))
+
+    def test_browser_cache_marker_requires_fantage_domain(self):
+        self.assertTrue(has_browser_cache_marker("/tmp/cache/play.fantage.com/r1/worldmap.swf"))
+        self.assertFalse(has_browser_cache_marker("/tmp/cache/fantage_dump/worldmap.swf"))
+
+    def test_browser_cache_related_uses_domain_content(self):
+        path = os.path.join(self.temp_dir, "world_loader.swf")
+        with open(path, "wb") as handle:
+            handle.write(b"https://play.fantage.com/r1/world_loader.swf")
+        self.assertTrue(is_browser_cache_related(path))
 
     def test_contextual_pet_asset_name_is_accepted(self):
         self.assertTrue(is_contextual_candidate("springy_blink~1.png"))

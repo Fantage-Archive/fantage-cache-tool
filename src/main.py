@@ -229,7 +229,7 @@ class App:
 
         # Description
         desc = ttk.Label(main_frame,
-                         text="Scans your computer for Fantage related cache files\nand extracts them into a zip folder.",
+                         text="Scans browser caches for Fantage files and also runs a\nlightweight full-computer Fantage sweep before zipping the results.",
                          style="Desc.TLabel", justify="center")
         desc.pack(pady=(0, 12))
 
@@ -250,7 +250,7 @@ class App:
                  font=FONT_LABEL).pack(side="left")
 
         # Path display
-        self.selected_dir = tk.StringVar(value="Browser Caches Only (Default)")
+        self.selected_dir = tk.StringVar(value="Automatic Browser + Misc Scan (Default)")
         path_frame = tk.Frame(scope_card, bg=COLORS["card_bg"])
         path_frame.pack(fill="x", padx=12, pady=(6, 0))
 
