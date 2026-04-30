@@ -28,9 +28,15 @@ Grab the latest release for your platform from the [Releases](../../releases) pa
 
 | Platform                                         | File                                   |
 | ------------------------------------------------ | -------------------------------------- |
-| Windows                                          | `FantageArchiveCacheTool-Windows.exe`  |
+| Windows 7 SP1 or newer                           | `FantageArchiveCacheTool-Windows.exe`  |
 | macOS (Intel, runs on Apple Silicon via Rosetta) | `FantageArchiveCacheTool-macOS.zip`    |
 | Linux                                            | `FantageArchiveCacheTool-Linux.tar.gz` |
+
+### Windows 7 note
+
+The Windows release is built with Python 3.8 because Python 3.9 and newer do not support Windows 7 and can fail with `api-ms-win-core-path-l1-1-0.dll` missing. Windows 7 computers may still need Microsoft update KB2533623 installed before Python-based apps can run.
+
+If you downloaded a Windows `.exe` before the Windows 7 fix release, download the newest `FantageArchiveCacheTool-Windows.exe` again from Releases.
 
 ## Features
 

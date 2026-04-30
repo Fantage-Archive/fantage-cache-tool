@@ -1,2 +1,4 @@
-pyinstaller
-Pillow
+pyinstaller>=6.0,<7.0
+Pillow>=10.4,<11.0; python_version < "3.9"
+Pillow>=11.0,<12.0; python_version == "3.9"
+Pillow>=12.0,<13.0; python_version >= "3.10"
