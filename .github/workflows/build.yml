@@ -127,7 +127,11 @@ jobs:
           cat > release_notes.md << BODY
           ## Downloads
 
-          Download the file for your system from the Assets section.
+          | Name | File | OS |
+          |------|------|----|
+          | Windows Executable (Windows 7 SP1+) | [FantageArchiveCacheTool-Windows.exe](${REPO_URL}/FantageArchiveCacheTool-Windows.exe) | ![Windows](https://img.shields.io/badge/-Windows-0078D4?logo=windows&logoColor=white) |
+          | macOS (Intel, runs on Apple Silicon via Rosetta) | [FantageArchiveCacheTool-macOS.zip](${REPO_URL}/FantageArchiveCacheTool-macOS.zip) | ![macOS](https://img.shields.io/badge/-macOS-000000?logo=apple&logoColor=white) |
+          | Linux | [FantageArchiveCacheTool-Linux.tar.gz](${REPO_URL}/FantageArchiveCacheTool-Linux.tar.gz) | ![Linux](https://img.shields.io/badge/-Linux-FCC624?logo=linux&logoColor=black) |
 
           ## Windows 7
 
