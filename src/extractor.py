@@ -12,6 +12,7 @@ from string import ascii_uppercase
 from typing import Iterable, List, Optional, Sequence, Tuple
 
 try:
+    from cache_decoders import decode_browser_cache_source, decode_windows_wininet_cache
     from scanner_utils import (
         classify_directory,
         has_browser_cache_marker,
@@ -22,6 +23,7 @@ try:
         is_related,
     )
 except ImportError:
+    from src.cache_decoders import decode_browser_cache_source, decode_windows_wininet_cache
     from src.scanner_utils import (
         classify_directory,
         has_browser_cache_marker,
@@ -843,6 +845,9 @@ class FantageExtractor:
             excluded_misc_roots = [os.path.abspath(source.root) for source in browser_sources]
             stopped = False
 
+            if not self.search_path:
+                self._scan_windows_url_cache(extract_base)
+
             for index, source in enumerate(browser_sources, start=1):
                 if self.stop_event.is_set():
                     stopped = True
@@ -883,6 +888,10 @@ class FantageExtractor:
 
     def _scan_browser_source(self, source, extract_base):
         destination_root = self._destination_root(extract_base, source.output_parts)
+        decoded_count = decode_browser_cache_source(source.root, destination_root, self._copied_input_paths)
+        if decoded_count:
+            self.files_found += decoded_count
+            self.update_callback(f"Decoded {decoded_count} browser cache files from {source.description}", 0)
 
         for root, dirs, files in os.walk(source.root, onerror=self._walk_error):
             if self.stop_event.is_set():
@@ -908,6 +917,16 @@ class FantageExtractor:
                     continue
                 if is_browser_cache_related(full_path):
                     self._copy_file(full_path, destination_root, source.root)
+
+    def _scan_windows_url_cache(self, extract_base):
+        destination_root = self._destination_root(
+            extract_base,
+            self._path_parts("browser_caches", "Internet Explorer", "WinINet URL Cache"),
+        )
+        decoded_count = decode_windows_wininet_cache(destination_root, self._copied_input_paths)
+        if decoded_count:
+            self.files_found += decoded_count
+            self.update_callback(f"Decoded {decoded_count} Windows URL cache files...", 0)
 
     def _scan_misc_source(self, source, extract_base, excluded_roots):
         destination_root = self._destination_root(extract_base, source.output_parts)

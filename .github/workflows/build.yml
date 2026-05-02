@@ -127,11 +127,7 @@ jobs:
           cat > release_notes.md << BODY
           ## Downloads
 
-          | Name | File | OS |
-          |------|------|----|
-          | Windows Executable (Windows 7 SP1+) | [FantageArchiveCacheTool-Windows.exe](${REPO_URL}/FantageArchiveCacheTool-Windows.exe) | ![Windows](https://img.shields.io/badge/-Windows-0078D4?logo=windows&logoColor=white) |
-          | macOS (Intel, runs on Apple Silicon via Rosetta) | [FantageArchiveCacheTool-macOS.zip](${REPO_URL}/FantageArchiveCacheTool-macOS.zip) | ![macOS](https://img.shields.io/badge/-macOS-000000?logo=apple&logoColor=white) |
-          | Linux | [FantageArchiveCacheTool-Linux.tar.gz](${REPO_URL}/FantageArchiveCacheTool-Linux.tar.gz) | ![Linux](https://img.shields.io/badge/-Linux-FCC624?logo=linux&logoColor=black) |
+          Download the file for your system from the Assets section.
 
           ## Windows 7
 
@@ -142,7 +138,7 @@ jobs:
           1. Download the correct version for the computer that has the cache
           2. Put it on a USB flash drive from another computer
           3. Plug the flash drive into the computer with the cache
-          4. Turn off the internet on that computer (browsers auto-clear old caches when they connect)
+          4. Turn off the internet on that computer because browsers can clear old caches when they connect
           5. Close all browsers (they can lock or overwrite cache files while running)
           6. Do NOT clear your browser history or caches
           7. Run the tool directly from the flash drive
@@ -152,10 +148,10 @@ jobs:
 
           ## What's New in ${CLEAN_VERSION}
 
-          1. Fixed the Windows 7 startup error where the app could fail with api-ms-win-core-path-l1-1-0.dll missing.
-          2. Rebuilt the Windows executable with Python 3.8.10 and compatible PyInstaller/Pillow dependencies for Windows 7 SP1 support.
-          3. Windows 7 users should download this new Windows executable instead of older release builds.
-          4. Windows 7 computers may still need Microsoft update KB2533623 installed before Python-based apps can run.
+          1. The tool now rebuilds Fantage browser cache files into normal folders when the browser cache metadata has the original URL.
+          2. This helps recover files under play.fantage.com and the r1 folder instead of only copying raw cache folders.
+          3. The tool now handles Windows and Internet Explorer cache data, old Chromium cache data, Firefox cache data, and Chrome simple cache data.
+          4. The older raw file scan still runs after the new decoder, so partial and unusual caches can still be collected.
           BODY
 
       - name: Create GitHub Release

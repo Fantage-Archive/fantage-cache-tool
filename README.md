@@ -41,6 +41,7 @@ If you downloaded a Windows `.exe` before the Windows 7 fix release, download th
 ## Features
 
 - **Browser scanning** - searches 30+ browsers including Chrome, Firefox, Edge, Brave, Opera, Vivaldi, Waterfox, Pale Moon, SeaMonkey, Maxthon, and more
+- **Decoded browser cache exports** - rebuilds URL-based Fantage folders from Windows/IE, old Chromium disk cache, Firefox cache files, and Chrome Simple Cache metadata where possible
 - **Flash cache discovery** - targets Macromedia Flash Player SharedObjects, Adobe Flash standalone, PepperFlash (per-browser), and Shockwave Player
 - **Folder structure preserved** - extracted files maintain their original path hierarchy so you can see exactly where they came from
 - **Cross-platform** - works on Windows, macOS, and Linux
