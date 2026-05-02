@@ -149,7 +149,7 @@ jobs:
           ## What's New in ${CLEAN_VERSION}
 
           1. The tool now rebuilds Fantage browser cache files into normal folders when the browser cache metadata has the original URL.
-          2. This helps recover files under play.fantage.com and the r1 folder instead of only copying raw cache folders.
+          2. This helps recover files from Fantage domains into their original URL folders instead of only copying raw cache folders.
           3. The tool now handles Windows and Internet Explorer cache data, old Chromium cache data, Firefox cache data, and Chrome simple cache data.
           4. The older raw file scan still runs after the new decoder, so partial and unusual caches can still be collected.
           BODY
