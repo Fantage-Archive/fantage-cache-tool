@@ -1,4 +1,5 @@
 import ctypes
+import csv
 import gzip
 import hashlib
 import os
@@ -29,6 +30,7 @@ MAX_DECODE_FILE_SIZE = 128 * 1024 * 1024
 URL_SNIFF_HEAD_BYTES = 1024 * 1024
 URL_SNIFF_TAIL_BYTES = 1024 * 1024
 FIREFOX_CACHE2_CHUNK_SIZES = (256 * 1024, 512 * 1024)
+RECOVERED_SWF_DIR = "Recovered_SWF"
 
 
 USEFUL_URL_EXTENSIONS = {
@@ -107,6 +109,8 @@ def decode_browser_cache_source(source_root: str, destination_root: str, copied_
         if _copy_decoded_entry(entry, destination_root, copied_paths, seen_targets):
             copied += 1
 
+    copied += _recover_orphan_swf_files(source_root, destination_root, copied_paths)
+
     return copied
 
 
@@ -176,6 +180,150 @@ def _copy_decoded_entry(entry: DecodedEntry, destination_root: str, copied_paths
         return True
     except OSError:
         return False
+
+
+def _recover_orphan_swf_files(source_root: str, destination_root: str, copied_paths: set) -> int:
+    copied = 0
+    manifest_rows = []
+    recovered_root = os.path.join(destination_root, RECOVERED_SWF_DIR)
+
+    for root, _, files in os.walk(source_root):
+        for file_name in files:
+            source_path = os.path.join(root, file_name)
+            if _is_flash_local_storage_path(source_path):
+                continue
+
+            source_key = os.path.normcase(os.path.abspath(source_path))
+            if source_key in copied_paths:
+                continue
+
+            recovered_from_file = False
+            for payload_index, payload in enumerate(_iter_swf_payloads(source_path), start=1):
+                output_name = _recovered_swf_name(source_path, payload, payload_index)
+                destination_path = os.path.join(recovered_root, output_name)
+                if os.path.exists(destination_path):
+                    if _file_has_same_bytes(destination_path, payload):
+                        recovered_from_file = True
+                        continue
+                    destination_path = _dedupe_destination(destination_path, payload)
+                    output_name = os.path.basename(destination_path)
+
+                try:
+                    os.makedirs(recovered_root, exist_ok=True)
+                    with open(destination_path, "wb") as handle:
+                        handle.write(payload)
+                    copied += 1
+                    recovered_from_file = True
+                    manifest_rows.append(
+                        (
+                            output_name,
+                            os.path.relpath(source_path, source_root),
+                            str(len(payload)),
+                            hashlib.sha1(payload).hexdigest(),
+                        )
+                    )
+                except OSError:
+                    continue
+
+            if recovered_from_file:
+                copied_paths.add(source_key)
+
+    if manifest_rows:
+        _append_recovered_swf_manifest(recovered_root, manifest_rows)
+    return copied
+
+
+def _iter_swf_payloads(path: str) -> Iterator[bytes]:
+    try:
+        data = _read_file(path)
+    except OSError:
+        return
+    if not data:
+        return
+
+    data = _maybe_decompress_http_payload(data)
+    if data.startswith((b"FWS", b"CWS", b"ZWS")):
+        payload = _trim_known_payload(data)
+        if _is_valid_swf_payload(payload):
+            yield payload
+        return
+
+    seen = set()
+    for match in re.finditer(rb"(?:FWS|CWS)", data):
+        offset = match.start()
+        payload = _read_swf_payload_at_offset(data, offset)
+        if not payload:
+            continue
+        digest = hashlib.sha1(payload).hexdigest()
+        if digest in seen:
+            continue
+        seen.add(digest)
+        yield payload
+
+
+def _read_swf_payload_at_offset(data: bytes, offset: int) -> bytes:
+    if offset < 0 or offset + 8 > len(data):
+        return b""
+
+    header = data[offset : offset + 8]
+    if header[:3] == b"FWS":
+        declared_size = struct.unpack_from("<I", header, 4)[0]
+        if 8 <= declared_size <= len(data) - offset:
+            payload = data[offset : offset + declared_size]
+            return payload if _is_valid_swf_payload(payload) else b""
+        return b""
+
+    if header[:3] == b"CWS":
+        try:
+            decompressor = zlib.decompressobj()
+            decompressor.decompress(data[offset + 8 :])
+            consumed = len(data[offset + 8 :]) - len(decompressor.unused_data)
+        except zlib.error:
+            return b""
+        if consumed <= 0:
+            return b""
+        payload = data[offset : offset + 8 + consumed]
+        return payload if _is_valid_swf_payload(payload) else b""
+
+    return b""
+
+
+def _is_valid_swf_payload(payload: bytes) -> bool:
+    if len(payload) < 8 or not payload.startswith((b"FWS", b"CWS", b"ZWS")):
+        return False
+    declared_size = struct.unpack_from("<I", payload, 4)[0]
+    return declared_size >= 8
+
+
+def _is_flash_local_storage_path(path: str) -> bool:
+    parts = set(os.path.normpath(path).lower().split(os.sep))
+    return "#sharedobjects" in parts or "flash player" in parts or "flashplayer" in parts or "flash_player" in parts
+
+
+def _recovered_swf_name(source_path: str, payload: bytes, payload_index: int = 1) -> str:
+    basename = _sanitize_component(os.path.basename(source_path))
+    stem, ext = os.path.splitext(basename)
+    if not stem:
+        stem = "cache_file"
+    digest = hashlib.sha1(payload).hexdigest()[:QUERY_SAFE_HASH_LEN]
+    if payload_index > 1:
+        stem = f"{stem}_{payload_index}"
+    if ext.lower() == ".swf":
+        return f"{stem}_{digest}.swf"
+    return f"{stem}_{digest}.swf"
+
+
+def _append_recovered_swf_manifest(recovered_root: str, rows: Sequence[Tuple[str, str, str, str]]) -> None:
+    manifest_path = os.path.join(recovered_root, "_manifest.tsv")
+    write_header = not os.path.exists(manifest_path)
+    try:
+        with open(manifest_path, "a", newline="", encoding="utf-8") as handle:
+            writer = csv.writer(handle, delimiter="\t")
+            if write_header:
+                writer.writerow(("file", "source_relative_path", "size", "sha1"))
+            writer.writerows(rows)
+    except OSError:
+        return
 
 
 def _read_file(path: str, limit: int = MAX_DECODE_FILE_SIZE) -> bytes:
