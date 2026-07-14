@@ -1,0 +1,13 @@
+# Fixed build tool versions for the Windows Vista x86 release.
+# Change these only after testing the executable on Vista SP2.
+PyInstaller==5.13.2
+Pillow==9.5.0
+altgraph==0.17.4
+importlib-metadata==6.7.0
+packaging==24.0
+pefile==2023.2.7
+pyinstaller-hooks-contrib==2024.7
+pywin32-ctypes==0.2.3
+setuptools==68.0.0
+typing-extensions==4.7.1
+zipp==3.15.0

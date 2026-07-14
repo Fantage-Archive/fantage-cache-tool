@@ -577,5 +577,9 @@ class App:
 if __name__ == "__main__":
     root = tk.Tk()
     app = App(root)
-    app.show_instructions()
-    root.mainloop()
+    if "--startup-check" in sys.argv:
+        root.update_idletasks()
+        root.destroy()
+    else:
+        app.show_instructions()
+        root.mainloop()

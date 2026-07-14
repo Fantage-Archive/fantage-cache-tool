@@ -11,28 +11,36 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  VISTA_UCRT_URL: "https://www.python.org/ftp/python/3.7.9/win32/ucrt.msi"
+  VISTA_UCRT_SHA256: "3da11bb2784140dcd235e4eaffc02a263392662399fbf7c6a7b45c7ae29e47f7"
 
 jobs:
   build:
     strategy:
       matrix:
         include:
-          # Windows x64
-          - os: windows-latest
-            arch: x64
-            python-version: "3.8.10"
-            artifact: FantageArchiveCacheTool-Windows-x64
+          # Windows x86 and Win32 for Vista SP2 and newer systems
+          - os: windows-2022
+            arch: x86
+            python-version: "3.7.9"
+            pip-spec: "pip==24.0"
+            requirements-file: requirements-windows-vista.txt
+            artifact: FantageArchiveCacheTool-Windows-x86
 
           # macOS x64 (Intel-native binary, built on Apple Silicon via Rosetta)
           - os: macos-latest
             arch: x64
             python-version: "3.11"
+            pip-spec: "pip<26"
+            requirements-file: requirements.txt
             artifact: FantageArchiveCacheTool-macOS-x64
 
           # Linux x64
           - os: ubuntu-latest
             arch: x64
             python-version: "3.11"
+            pip-spec: "pip<26"
+            requirements-file: requirements.txt
             artifact: FantageArchiveCacheTool-Linux-x64
 
     runs-on: ${{ matrix.os }}
@@ -55,13 +63,57 @@ jobs:
 
       - name: Install Python dependencies
         run: |
-          python -m pip install --upgrade "pip<26"
-          python -m pip install -r requirements.txt
+          python -m pip install --upgrade "${{ matrix.pip-spec }}"
+          python -m pip install --only-binary=:all: -r "${{ matrix.requirements-file }}"
+          python -m pip check
+
+      - name: Verify Windows build toolchain
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          python -c "import struct; bits = struct.calcsize('P') * 8; print('Python architecture: {} bit'.format(bits)); assert bits == 32, 'The Vista release must use 32 bit Python'"
+          python -c "import PIL, PyInstaller; print('PyInstaller {}, Pillow {}'.format(PyInstaller.__version__, PIL.__version__)); assert PyInstaller.__version__ == '5.13.2'; assert PIL.__version__ == '9.5.0'"
+
+      - name: Stage the Vista compatible x86 Universal CRT
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $msiPath = Join-Path $env:RUNNER_TEMP "python_3_7_9_x86_ucrt.msi"
+          $administrativeDirectory = Join-Path $env:RUNNER_TEMP "python_3_7_9_x86_ucrt"
+          Invoke-WebRequest -Uri $env:VISTA_UCRT_URL -OutFile $msiPath
+
+          $actualHash = (Get-FileHash $msiPath -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actualHash -ne $env:VISTA_UCRT_SHA256) {
+            throw "The Universal CRT package hash does not match the fixed value"
+          }
+
+          New-Item -ItemType Directory -Force $administrativeDirectory | Out-Null
+          $arguments = @("/a", $msiPath, "/qn", "TARGETDIR=$administrativeDirectory")
+          $process = Start-Process -FilePath msiexec.exe -ArgumentList $arguments -Wait -PassThru
+          if ($process.ExitCode -ne 0) {
+            throw "Could not extract the fixed Universal CRT package"
+          }
+
+          $ucrtbaseFile = Get-ChildItem $administrativeDirectory -Recurse -Filter "ucrtbase.dll" | Select-Object -First 1
+          if (-not $ucrtbaseFile) {
+            throw "The x86 Universal CRT set does not contain ucrtbase.dll"
+          }
+          $ucrtDirectory = $ucrtbaseFile.Directory.FullName
+          if (-not (Test-Path (Join-Path $ucrtDirectory "api-ms-win-crt-runtime-l1-1-0.dll"))) {
+            throw "The x86 Universal CRT set does not contain the runtime API DLL"
+          }
+          $dllCount = (Get-ChildItem $ucrtDirectory -Filter "*.dll").Count
+          if ($dllCount -ne 41) {
+            throw "Expected 41 x86 Universal CRT files, found $dllCount"
+          }
+
+          "UCRT_X86_DIR=$ucrtDirectory" | Out-File -FilePath $env:GITHUB_ENV -Append
+          Write-Host "Staged $dllCount x86 UCRT DLLs from $ucrtDirectory"
 
       - name: Build executable (Unix)
         if: runner.os != 'Windows'
         run: |
-          pyinstaller --noconfirm --onefile --windowed \
+          python -m PyInstaller --noconfirm --clean --onefile --windowed \
             --name "FantageArchiveCacheTool" \
             --add-data "assets/thatsonecrazymonkey.gif:." \
             --add-data "assets/FA_logo.png:." \
@@ -72,13 +124,33 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          pyinstaller --noconfirm --onefile --windowed `
+          python -m PyInstaller --noconfirm --clean --noupx --onefile --windowed `
             --name "FantageArchiveCacheTool" `
             --add-data "assets\thatsonecrazymonkey.gif;." `
             --add-data "assets\FA_logo.png;." `
+            --add-binary "$env:UCRT_X86_DIR\*.dll;." `
             --hidden-import "PIL._tkinter_finder" `
             --icon "assets\FA_logo.png" `
             src\main.py
+
+      - name: Verify Windows executable compatibility
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          python scripts\check_windows_pe.py dist\FantageArchiveCacheTool.exe
+
+      - name: Test the x86 executable on 64 bit Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $process = Start-Process -FilePath "dist\FantageArchiveCacheTool.exe" -ArgumentList "--startup-check" -PassThru
+          if (-not $process.WaitForExit(30000)) {
+            Stop-Process -Id $process.Id -Force
+            throw "The Windows startup check did not finish in 30 seconds"
+          }
+          if ($process.ExitCode -ne 0) {
+            throw "The Windows startup check failed with exit code $($process.ExitCode)"
+          }
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -101,8 +173,8 @@ jobs:
         run: |
           mkdir -p release
 
-          # ---- Windows x64 ----
-          cp artifacts/FantageArchiveCacheTool-Windows-x64/FantageArchiveCacheTool.exe \
+          # Windows x86 and Win32 for Vista SP2 and newer systems
+          cp artifacts/FantageArchiveCacheTool-Windows-x86/FantageArchiveCacheTool.exe \
              release/FantageArchiveCacheTool-Windows.exe
 
           # ---- macOS x64 (Intel, Apple Silicon via Rosetta 2) ----
@@ -129,13 +201,15 @@ jobs:
 
           | Name | File | OS |
           |------|------|----|
-          | Windows Executable (Windows 7 SP1+) | [FantageArchiveCacheTool-Windows.exe](${REPO_URL}/FantageArchiveCacheTool-Windows.exe) | ![Windows](https://img.shields.io/badge/-Windows-0078D4?logo=windows&logoColor=white) |
+          | Windows Executable for Windows Vista SP2 or newer, 32 bit and 64 bit | [FantageArchiveCacheTool-Windows.exe](${REPO_URL}/FantageArchiveCacheTool-Windows.exe) | ![Windows](https://img.shields.io/badge/-Windows-0078D4?logo=windows&logoColor=white) |
           | macOS (Intel, runs on Apple Silicon via Rosetta) | [FantageArchiveCacheTool-macOS.zip](${REPO_URL}/FantageArchiveCacheTool-macOS.zip) | ![macOS](https://img.shields.io/badge/-macOS-000000?logo=apple&logoColor=white) |
           | Linux | [FantageArchiveCacheTool-Linux.tar.gz](${REPO_URL}/FantageArchiveCacheTool-Linux.tar.gz) | ![Linux](https://img.shields.io/badge/-Linux-FCC624?logo=linux&logoColor=black) |
 
-          ## Windows 7
+          ## Windows Vista and Win32
 
-          The Windows executable is built with Python 3.8 so it can run on Windows 7 SP1 systems. Windows 7 users may still need Microsoft update KB2533623 installed.
+          The Windows executable is a 32 bit x86 Win32 program. It runs on both 32 bit and 64 bit Windows through the built in WOW64 compatibility layer. It is built with Python 3.7.9 and fixed versions of the packaging tools for Windows Vista support.
+
+          Windows Vista must have Service Pack 2. The executable includes the Vista compatible x86 Universal C Runtime. If Windows still reports a missing api-ms-win-crt DLL, install Microsoft update KB2999226.
 
           ## How to Use
 
@@ -152,10 +226,10 @@ jobs:
 
           ## What's New in ${CLEAN_VERSION}
 
-          1. The tool now recovers real SWF files from Chrome cache files when the original URL metadata is missing or damaged.
-          2. Recovered SWF files are saved in Recovered_SWF with a manifest that records the source cache file.
-          3. Flash local storage folders are skipped by the SWF recovery step so .sol data does not create fake SWF files.
-          4. URL based decoding still runs first when the browser cache has enough metadata.
+          1. Fixed the "not a valid Win32 application" error on 32 bit Windows by replacing the x64 only release with an x86 Win32 executable.
+          2. Restored Windows Vista compatibility by building the Windows release with Python 3.7.9, PyInstaller 5.13.2, and Pillow 9.5.0.
+          3. Included the x86 Universal C Runtime and added a compatibility check for the executable and all included native libraries.
+          4. The same Windows download continues to work on newer 32 bit and 64 bit Windows versions.
           BODY
 
       - name: Create GitHub Release

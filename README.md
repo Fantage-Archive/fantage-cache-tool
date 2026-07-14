@@ -28,15 +28,17 @@ Grab the latest release for your platform from the [Releases](../../releases) pa
 
 | Platform                                         | File                                   |
 | ------------------------------------------------ | -------------------------------------- |
-| Windows 7 SP1 or newer                           | `FantageArchiveCacheTool-Windows.exe`  |
+| Windows Vista SP2 or newer, 32 bit and 64 bit    | `FantageArchiveCacheTool-Windows.exe`  |
 | macOS (Intel, runs on Apple Silicon via Rosetta) | `FantageArchiveCacheTool-macOS.zip`    |
 | Linux                                            | `FantageArchiveCacheTool-Linux.tar.gz` |
 
-### Windows 7 note
+### Windows Vista and 32 bit systems
 
-The Windows release is built with Python 3.8 because Python 3.9 and newer do not support Windows 7 and can fail with `api-ms-win-core-path-l1-1-0.dll` missing. Windows 7 computers may still need Microsoft update KB2533623 installed before Python-based apps can run.
+The Windows release is a 32 bit x86 Win32 executable. It works on both 32 bit and 64 bit Windows through the built in WOW64 compatibility layer. This includes 64 bit Windows Vista and modern 64 bit Windows. It is built with Python 3.7.9 because the Python 3.7 Windows runtime supports Windows Vista, while newer Python versions require newer Windows releases.
 
-If you downloaded a Windows `.exe` before the Windows 7 fix release, download the newest `FantageArchiveCacheTool-Windows.exe` again from Releases.
+Windows Vista must have Service Pack 2. The release includes the Vista compatible x86 Universal C Runtime. If Windows still reports a missing `api-ms-win-crt` DLL, install Microsoft update KB2999226.
+
+If you downloaded an older x64 Windows `.exe` and saw `is not a valid Win32 application`, download the newest `FantageArchiveCacheTool-Windows.exe` from Releases.
 
 ## Features
 
@@ -71,6 +73,7 @@ assets/
   thatsonecrazymonkey.gif
 .github/workflows/build.yml  # CI: cross platform builds
 FantageArchiveCacheTool.spec  # PyInstaller build spec
+requirements-windows-vista.txt  # Fixed Vista x86 release dependencies
 README.md
 requirements.txt
 ```

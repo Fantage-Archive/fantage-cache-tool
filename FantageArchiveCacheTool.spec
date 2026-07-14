@@ -33,7 +33,8 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    # Keep the Windows build uncompressed for loader compatibility.
+    upx=False,
     console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
