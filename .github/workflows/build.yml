@@ -27,8 +27,8 @@ jobs:
             requirements-file: requirements-windows-vista.txt
             artifact: FantageArchiveCacheTool-Windows-x86
 
-          # macOS x64 (Intel-native binary, built on Apple Silicon via Rosetta)
-          - os: macos-latest
+          # macOS x64 (Intel native binary, Apple Silicon runs it via Rosetta 2)
+          - os: macos-15-intel
             arch: x64
             python-version: "3.11"
             pip-spec: "pip<26"
@@ -133,6 +133,13 @@ jobs:
             --icon "assets\FA_logo.png" `
             src\main.py
 
+      - name: Verify macOS executable compatibility
+        if: runner.os == 'macOS'
+        run: |
+          test "$(uname -m)" = "x86_64"
+          file dist/FantageArchiveCacheTool
+          lipo -verify_arch x86_64 dist/FantageArchiveCacheTool
+
       - name: Verify Windows executable compatibility
         if: runner.os == 'Windows'
         shell: pwsh
@@ -226,10 +233,10 @@ jobs:
 
           ## What's New in ${CLEAN_VERSION}
 
-          1. Fixed the "not a valid Win32 application" error on 32 bit Windows by replacing the x64 only release with an x86 Win32 executable.
-          2. Restored Windows Vista compatibility by building the Windows release with Python 3.7.9, PyInstaller 5.13.2, and Pillow 9.5.0.
-          3. Included the x86 Universal C Runtime and added a compatibility check for the executable and all included native libraries.
-          4. The same Windows download continues to work on newer 32 bit and 64 bit Windows versions.
+          1. Fixed the macOS download for Intel Macs.
+          2. The macOS release now uses a dedicated Intel x86_64 runner.
+          3. Added architecture validation to prevent an ARM build from being published as Intel.
+          4. Apple Silicon Macs can run the Intel release with Rosetta 2.
           BODY
 
       - name: Create GitHub Release
