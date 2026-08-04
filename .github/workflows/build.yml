@@ -138,7 +138,7 @@ jobs:
         run: |
           test "$(uname -m)" = "x86_64"
           file dist/FantageArchiveCacheTool
-          lipo -verify_arch x86_64 dist/FantageArchiveCacheTool
+          lipo dist/FantageArchiveCacheTool -verify_arch x86_64
 
       - name: Verify Windows executable compatibility
         if: runner.os == 'Windows'
